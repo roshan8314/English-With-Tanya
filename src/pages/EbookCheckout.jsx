@@ -65,7 +65,7 @@ function EbookCheckout() {
 
       // 2. Create Razorpay order from backend
       const orderResponse = await fetch(
-        "http://localhost:5000/api/payments/create-order",
+        "https://english-with-tanya-backend.onrender.com/api/payments/create-order",
         {
           method: "POST",
           headers: {
@@ -117,7 +117,7 @@ function EbookCheckout() {
           try {
             // 4. Send payment details to backend for verification
             const verifyResponse = await fetch(
-              "http://localhost:5000/api/payments/verify-payment",
+              "https://english-with-tanya-backend.onrender.com/api/payments/verify-payment",
               {
                 method: "POST",
                 headers: {
