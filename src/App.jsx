@@ -369,13 +369,7 @@ function App() {
           ))}
         </div>
 
-        <div className="review-screenshot-area">
-          <h3>Customer Review Screenshots</h3>
-
-          <p>
-            Your actual customer screenshots will be placed here.
-          </p>
-        </div>
+        
       </section>
 
       {/* ================= COURSES ================= */}

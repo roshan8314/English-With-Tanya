@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "../App.css";
 
 function EbookCheckout() {
   const navigate = useNavigate();
@@ -23,6 +24,28 @@ function EbookCheckout() {
     }));
   };
 
+  // Load Razorpay Checkout
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const existingScript = document.querySelector(
+        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      );
+
+      if (existingScript) {
+        resolve(true);
+        return;
+      }
+
+      const script = document.createElement("script");
+
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+
+      document.body.appendChild(script);
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -31,39 +54,145 @@ function EbookCheckout() {
     setError("");
 
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/ebook-orders",
+      // 1. Load Razorpay Checkout
+      const scriptLoaded = await loadRazorpayScript();
+
+      if (!scriptLoaded) {
+        throw new Error(
+          "Razorpay Checkout could not be loaded. Please check your internet connection."
+        );
+      }
+
+      // 2. Create Razorpay order from backend
+      const orderResponse = await fetch(
+        "http://localhost:5000/api/payments/create-order",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            name: form.name,
+            email: form.email,
+            phone: form.phone,
+          }),
         }
       );
 
-      const data = await response.json();
+      const orderData = await orderResponse.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Order submission failed.");
+      if (!orderResponse.ok || !orderData.success) {
+        throw new Error(
+          orderData.message || "Unable to create payment order."
+        );
       }
 
-      setMessage(
-        "Order details submitted successfully! Tanya will contact you soon."
-      );
+      const razorpayOrder = orderData.order;
 
-      setForm({
-        name: "",
-        email: "",
-        phone: "",
+      // 3. Open Razorpay Checkout
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+
+        amount: razorpayOrder.amount,
+
+        currency: razorpayOrder.currency,
+
+        name: "English With Tanya",
+
+        description: "English With Tanya eBook",
+
+        order_id: razorpayOrder.id,
+
+        prefill: {
+          name: form.name,
+          email: form.email,
+          contact: form.phone,
+        },
+
+        theme: {
+          color: "#ff4d00",
+        },
+
+        handler: async function (response) {
+          try {
+            // 4. Send payment details to backend for verification
+            const verifyResponse = await fetch(
+              "http://localhost:5000/api/payments/verify-payment",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              }
+            );
+
+            const verifyData = await verifyResponse.json();
+
+            if (!verifyResponse.ok || !verifyData.success) {
+              throw new Error(
+                verifyData.message || "Payment verification failed."
+              );
+            }
+
+            setMessage(
+              "Payment successful! Your eBook order has been confirmed."
+            );
+
+            setForm({
+              name: "",
+              email: "",
+              phone: "",
+            });
+          } catch (verificationError) {
+            console.error(
+              "Payment verification error:",
+              verificationError
+            );
+
+            setError(
+              verificationError.message ||
+                "Payment verification failed."
+            );
+          } finally {
+            setLoading(false);
+          }
+        },
+
+        modal: {
+          ondismiss: function () {
+            setLoading(false);
+            setError("Payment was cancelled.");
+          },
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+
+      razorpay.on("payment.failed", function (response) {
+        console.error("Razorpay payment failed:", response.error);
+
+        setError(
+          response.error?.description ||
+            "Payment failed. Please try again."
+        );
+
+        setLoading(false);
       });
+
+      razorpay.open();
     } catch (error) {
-      console.error("eBook order error:", error);
+      console.error("Payment error:", error);
 
       setError(
-        error.message || "Something went wrong. Please try again."
+        error.message ||
+          "Something went wrong. Please try again."
       );
-    } finally {
+
       setLoading(false);
     }
   };
@@ -81,7 +210,9 @@ function EbookCheckout() {
 
         <div className="checkout-grid">
           <div className="checkout-product">
-            <div className="checkout-badge">ENGLISH WITH TANYA</div>
+            <div className="checkout-badge">
+              ENGLISH WITH TANYA
+            </div>
 
             <h1>
               English Grammar
@@ -189,12 +320,14 @@ function EbookCheckout() {
                 className="checkout-submit"
                 disabled={loading}
               >
-                {loading ? "SUBMITTING..." : "CONTINUE TO PAYMENT →"}
+                {loading
+                  ? "OPENING PAYMENT..."
+                  : "CONTINUE TO PAYMENT →"}
               </button>
             </form>
 
             <p className="checkout-note">
-              Secure order processing • Your information is kept private
+              Secure payment processing • Your information is kept private
             </p>
           </div>
         </div>
