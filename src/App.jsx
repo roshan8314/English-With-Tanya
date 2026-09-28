@@ -38,6 +38,9 @@ function App() {
   // ================= TRIAL BOOKING =================
 
   const bookTrial = () => {
+    setBookingMessage("");
+    setBookingError("");
+
     setBookingForm((previous) => ({
       ...previous,
       course: "₹99 Trial Class",
@@ -55,7 +58,218 @@ function App() {
       ...previous,
       [name]: value,
     }));
+
+    setBookingMessage("");
+    setBookingError("");
   };
+
+  // ================= LOAD RAZORPAY =================
+
+  const loadRazorpay = () => {
+    return new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
+
+      const script = document.createElement("script");
+
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+
+      script.onload = () => {
+        resolve(true);
+      };
+
+      script.onerror = () => {
+        resolve(false);
+      };
+
+      document.body.appendChild(script);
+    });
+  };
+
+  // ================= TRIAL PAYMENT =================
+
+  const handleTrialPayment = async () => {
+    try {
+      setBookingLoading(true);
+      setBookingMessage("");
+      setBookingError("");
+
+      // Check Razorpay SDK
+      const razorpayLoaded = await loadRazorpay();
+
+      if (!razorpayLoaded) {
+        throw new Error(
+          "Razorpay failed to load. Please check your internet connection."
+        );
+      }
+
+      // Create Razorpay order
+      const orderResponse = await fetch(
+        "http://localhost:5000/api/payments/create-order",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            type: "trial",
+            name: bookingForm.name,
+            email: bookingForm.email,
+            phone: bookingForm.phone,
+            course: bookingForm.course,
+            preferredDate: bookingForm.preferredDate,
+            preferredTime: bookingForm.preferredTime,
+            message: bookingForm.message,
+          }),
+        }
+      );
+
+      const orderData = await orderResponse.json();
+
+      if (!orderResponse.ok || !orderData.success) {
+        throw new Error(
+          orderData.message || "Unable to create payment order."
+        );
+      }
+
+      // Razorpay checkout options
+      const options = {
+        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+
+        amount: orderData.order.amount,
+
+        currency: orderData.order.currency,
+
+        name: "English With Tanya",
+
+        description: "₹99 Trial English Class",
+
+        order_id: orderData.order.id,
+
+        prefill: {
+          name: bookingForm.name,
+          email: bookingForm.email,
+          contact: bookingForm.phone,
+        },
+
+        notes: {
+          course: bookingForm.course,
+          preferredDate: bookingForm.preferredDate,
+          preferredTime: bookingForm.preferredTime,
+        },
+
+        theme: {
+          color: "#ff4d00",
+        },
+
+        handler: async function (response) {
+          try {
+            setBookingMessage("Verifying your payment...");
+            setBookingError("");
+
+            // Verify payment on backend
+            const verifyResponse = await fetch(
+              "http://localhost:5000/api/payments/verify-payment",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              }
+            );
+
+            const verifyData = await verifyResponse.json();
+
+            if (!verifyResponse.ok || !verifyData.success) {
+              throw new Error(
+                verifyData.message || "Payment verification failed."
+              );
+            }
+
+            // Payment successful
+            setBookingMessage(
+              "Payment successful! Your ₹99 trial class is confirmed. Tanya will contact you soon."
+            );
+
+            setBookingError("");
+
+            // Clear form
+            setBookingForm({
+              name: "",
+              email: "",
+              phone: "",
+              course: "",
+              preferredDate: "",
+              preferredTime: "",
+              message: "",
+            });
+          } catch (error) {
+            console.error("Payment verification error:", error);
+
+            setBookingMessage("");
+
+            setBookingError(
+              error.message ||
+                "Payment was completed, but verification failed. Please contact Tanya."
+            );
+          } finally {
+            setBookingLoading(false);
+          }
+        },
+
+        modal: {
+          ondismiss: function () {
+            setBookingLoading(false);
+
+            setBookingError(
+              "Payment window was closed. Your trial booking has not been confirmed."
+            );
+          },
+        },
+      };
+
+      // Check public Razorpay key
+      if (!options.key) {
+        throw new Error(
+          "Razorpay key is missing. Please add VITE_RAZORPAY_KEY_ID to the frontend .env file."
+        );
+      }
+
+      const razorpay = new window.Razorpay(options);
+
+      razorpay.on("payment.failed", function (response) {
+        console.error("Razorpay payment failed:", response.error);
+
+        setBookingLoading(false);
+
+        setBookingError(
+          response.error?.description ||
+            "Payment failed. Please try again."
+        );
+      });
+
+      razorpay.open();
+    } catch (error) {
+      console.error("Trial payment error:", error);
+
+      setBookingLoading(false);
+
+      setBookingMessage("");
+
+      setBookingError(
+        error.message || "Something went wrong. Please try again."
+      );
+    }
+  };
+
+  // ================= BOOKING SUBMIT =================
 
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
@@ -65,13 +279,32 @@ function App() {
     setBookingError("");
 
     try {
+      /*
+      ================================================
+      ₹99 TRIAL
+      ================================================
+      */
+
+      if (bookingForm.course === "₹99 Trial Class") {
+        await handleTrialPayment();
+        return;
+      }
+
+      /*
+      ================================================
+      NORMAL COURSE BOOKING
+      ================================================
+      */
+
       const response = await fetch(
         "http://localhost:5000/api/bookings",
         {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json",
           },
+
           body: JSON.stringify(bookingForm),
         }
       );
@@ -85,6 +318,8 @@ function App() {
       setBookingMessage(
         "Booking submitted successfully! Tanya will contact you soon."
       );
+
+      setBookingError("");
 
       setBookingForm({
         name: "",
@@ -114,21 +349,25 @@ function App() {
       answer:
         "These classes are designed for adults and learners who want to improve spoken English, grammar, vocabulary, pronunciation and everyday communication.",
     },
+
     {
       question: "Are the classes live?",
       answer:
         "Yes. The classes are designed around live online sessions with practical speaking activities and personalised feedback.",
     },
+
     {
       question: "Can I book a trial class?",
       answer:
-        "Yes. You can book a trial session for ₹99. The booking button can later be connected to your payment and booking system.",
+        "Yes. You can book a trial session for ₹99. Payment is processed securely through Razorpay.",
     },
+
     {
       question: "Will I receive practice material?",
       answer:
         "Students can receive structured practice materials such as PDFs, exercises and activities depending on the course.",
     },
+
     {
       question: "Do you offer individual classes?",
       answer:
@@ -145,12 +384,14 @@ function App() {
       description:
         "Personalised one-to-one English coaching designed around your speaking goals, confidence and daily communication needs.",
     },
+
     {
       number: "02",
       title: "Group Classes",
       description:
         "Interactive live classes where learners practise speaking, conversation, vocabulary and communication together.",
     },
+
     {
       number: "03",
       title: "Complete Grammar Classes",
@@ -167,16 +408,19 @@ function App() {
       text:
         "The classes helped me become much more confident while speaking English. The sessions are practical and easy to understand.",
     },
+
     {
       name: "Student Review",
       text:
         "I really enjoyed the speaking activities and personal feedback. I feel much more comfortable communicating in English now.",
     },
+
     {
       name: "Student Review",
       text:
         "The grammar explanations are simple and practical. The regular practice has helped me improve my communication.",
     },
+
     {
       name: "Student Review",
       text:
@@ -186,9 +430,11 @@ function App() {
 
   return (
     <div className="website">
+
       {/* ================= NAVBAR ================= */}
 
       <header className="navbar">
+
         <div
           className="logo"
           onClick={() => scrollToSection("home")}
@@ -197,6 +443,7 @@ function App() {
         </div>
 
         <nav className="nav-links">
+
           <button onClick={() => scrollToSection("about")}>
             About
           </button>
@@ -219,15 +466,19 @@ function App() {
           >
             Book a Class
           </button>
+
         </nav>
+
       </header>
 
       {/* ================= HERO ================= */}
 
       <section id="home" className="hero">
+
         <div className="hero-background"></div>
 
         <div className="hero-content">
+
           <p className="hero-small-text">
             LIVE ZOOM CLASSES &nbsp; | &nbsp; DAILY PRACTICE
             &nbsp; | &nbsp; PERSONAL FEEDBACK
@@ -266,23 +517,32 @@ function App() {
             <br />
             their English across social media
           </p>
+
         </div>
 
         <div className="hero-image-area">
+
           <div className="image-placeholder hero-person">
+
             <div className="hero-person">
+
               <img
                 src="/images/first.jpeg"
                 alt="Tanya - English Communication Coach"
               />
+
             </div>
+
           </div>
+
         </div>
+
       </section>
 
       {/* ================= ABOUT ================= */}
 
       <section id="about" className="about-section section">
+
         <div className="section-label">
           YOUR ENGLISH JOURNEY
         </div>
@@ -294,16 +554,22 @@ function App() {
         </h2>
 
         <div className="about-grid">
+
           <div className="image-placeholder about-image">
+
             <div>
+
               <img
                 src="/images/second.jpeg"
                 alt="Tanya - English Communication Coach"
               />
+
             </div>
+
           </div>
 
           <div className="about-text">
+
             <p>
               At English with Tanya, the focus goes beyond
               grammar to real-life communication. The training
@@ -331,13 +597,17 @@ function App() {
             >
               VIEW COURSE DETAILS
             </button>
+
           </div>
+
         </div>
+
       </section>
 
       {/* ================= REVIEWS ================= */}
 
       <section id="reviews" className="reviews-section section">
+
         <div className="section-label center">
           REAL LEARNERS • REAL PROGRESS
         </div>
@@ -352,29 +622,43 @@ function App() {
         </p>
 
         <div className="reviews-grid">
-          {reviews.map((review, index) => (
-            <div className="review-card" key={index}>
-              <div className="stars">★★★★★</div>
 
-              <p>"{review.text}"</p>
+          {reviews.map((review, index) => (
+
+            <div className="review-card" key={index}>
+
+              <div className="stars">
+                ★★★★★
+              </div>
+
+              <p>
+                "{review.text}"
+              </p>
 
               <div className="review-name">
+
                 <div className="review-avatar">
                   {index + 1}
                 </div>
 
-                <strong>{review.name}</strong>
+                <strong>
+                  {review.name}
+                </strong>
+
               </div>
+
             </div>
+
           ))}
+
         </div>
 
-        
       </section>
 
       {/* ================= COURSES ================= */}
 
       <section id="courses" className="courses-section section">
+
         <div className="section-label center">
           LEARN • PRACTICE • SPEAK
         </div>
@@ -388,35 +672,48 @@ function App() {
         </p>
 
         <div className="courses-grid">
+
           {courses.map((course) => (
+
             <div
               className="course-card"
               key={course.number}
             >
+
               <div className="course-number">
                 {course.number}
               </div>
 
-              <h3>{course.title}</h3>
+              <h3>
+                {course.title}
+              </h3>
 
-              <p>{course.description}</p>
+              <p>
+                {course.description}
+              </p>
 
               <button
                 onClick={() => {
+
                   setBookingForm((previous) => ({
                     ...previous,
                     course: course.title,
                   }));
 
                   scrollToSection("booking");
+
                 }}
               >
                 BOOK THIS COURSE
                 <span>↗</span>
               </button>
+
             </div>
+
           ))}
+
         </div>
+
       </section>
 
       {/* ================= BOOKING ================= */}
@@ -425,6 +722,7 @@ function App() {
         id="booking"
         className="booking-section section"
       >
+
         <div className="section-label center">
           BOOK YOUR SESSION
         </div>
@@ -439,13 +737,19 @@ function App() {
         </p>
 
         <div className="booking-container">
+
           <form
             className="booking-form"
             onSubmit={handleBookingSubmit}
           >
+
             <div className="form-row">
+
               <div className="form-group">
-                <label htmlFor="name">Full Name</label>
+
+                <label htmlFor="name">
+                  Full Name
+                </label>
 
                 <input
                   type="text"
@@ -456,9 +760,11 @@ function App() {
                   onChange={handleBookingChange}
                   required
                 />
+
               </div>
 
               <div className="form-group">
+
                 <label htmlFor="email">
                   Email Address
                 </label>
@@ -472,11 +778,15 @@ function App() {
                   onChange={handleBookingChange}
                   required
                 />
+
               </div>
+
             </div>
 
             <div className="form-row">
+
               <div className="form-group">
+
                 <label htmlFor="phone">
                   Phone Number
                 </label>
@@ -490,9 +800,11 @@ function App() {
                   onChange={handleBookingChange}
                   required
                 />
+
               </div>
 
               <div className="form-group">
+
                 <label htmlFor="course">
                   Select Course
                 </label>
@@ -504,6 +816,7 @@ function App() {
                   onChange={handleBookingChange}
                   required
                 >
+
                   <option value="">
                     Select a course
                   </option>
@@ -523,12 +836,17 @@ function App() {
                   <option value="Complete Grammar Classes">
                     Complete Grammar Classes
                   </option>
+
                 </select>
+
               </div>
+
             </div>
 
             <div className="form-row">
+
               <div className="form-group">
+
                 <label htmlFor="preferredDate">
                   Preferred Date
                 </label>
@@ -541,9 +859,11 @@ function App() {
                   onChange={handleBookingChange}
                   required
                 />
+
               </div>
 
               <div className="form-group">
+
                 <label htmlFor="preferredTime">
                   Preferred Time
                 </label>
@@ -556,11 +876,16 @@ function App() {
                   onChange={handleBookingChange}
                   required
                 />
+
               </div>
+
             </div>
 
             <div className="form-group">
-              <label htmlFor="message">Message</label>
+
+              <label htmlFor="message">
+                Message
+              </label>
 
               <textarea
                 id="message"
@@ -570,18 +895,23 @@ function App() {
                 value={bookingForm.message}
                 onChange={handleBookingChange}
               ></textarea>
+
             </div>
 
             {bookingMessage && (
+
               <div className="booking-success">
                 {bookingMessage}
               </div>
+
             )}
 
             {bookingError && (
+
               <div className="booking-error">
                 {bookingError}
               </div>
+
             )}
 
             <button
@@ -589,14 +919,21 @@ function App() {
               className="orange-button booking-submit"
               disabled={bookingLoading}
             >
+
               {bookingLoading
-                ? "SUBMITTING..."
+                ? "PROCESSING..."
+                : bookingForm.course === "₹99 Trial Class"
+                ? "PAY ₹99 & BOOK TRIAL"
                 : "SUBMIT BOOKING"}
 
               <span>↗</span>
+
             </button>
+
           </form>
+
         </div>
+
       </section>
 
       {/* ================= EBOOK ================= */}
@@ -605,8 +942,11 @@ function App() {
         id="ebook"
         className="ebook-section section"
       >
+
         <div className="ebook-container">
+
           <div className="ebook-content">
+
             <div className="section-label">
               LEARN AT YOUR OWN PACE
             </div>
@@ -637,10 +977,13 @@ function App() {
             >
               Have a question? Contact Tanya
             </button>
+
           </div>
 
           <div className="book-area">
+
             <div className="book">
+
               <div className="book-top">
                 ENGLISH WITH
               </div>
@@ -660,14 +1003,19 @@ function App() {
               <div className="book-bottom">
                 English Communication
               </div>
+
             </div>
+
           </div>
+
         </div>
+
       </section>
 
       {/* ================= FAQ ================= */}
 
       <section id="faq" className="faq-section section">
+
         <div className="section-label center">
           NEED TO KNOW
         </div>
@@ -677,13 +1025,16 @@ function App() {
         </h2>
 
         <div className="faq-container">
+
           {faqs.map((faq, index) => (
+
             <div
               className={`faq-item ${
                 openFaq === index ? "active" : ""
               }`}
               key={index}
             >
+
               <button
                 onClick={() =>
                   setOpenFaq(
@@ -691,27 +1042,39 @@ function App() {
                   )
                 }
               >
-                <span>{faq.question}</span>
+
+                <span>
+                  {faq.question}
+                </span>
 
                 <span className="faq-icon">
                   {openFaq === index ? "−" : "+"}
                 </span>
+
               </button>
 
               {openFaq === index && (
+
                 <div className="faq-answer">
                   {faq.answer}
                 </div>
+
               )}
+
             </div>
+
           ))}
+
         </div>
+
       </section>
 
       {/* ================= CONTACT CTA ================= */}
 
       <section className="contact-section">
+
         <div className="contact-content">
+
           <div className="section-label">
             READY TO START?
           </div>
@@ -733,14 +1096,19 @@ function App() {
           >
             BOOK YOUR TRIAL — ₹99
           </button>
+
         </div>
+
       </section>
 
       {/* ================= FOOTER ================= */}
 
       <footer id="contact" className="footer">
+
         <div className="footer-grid">
+
           <div className="footer-about">
+
             <div className="footer-logo">
               English <span>With Tanya</span>
             </div>
@@ -752,44 +1120,42 @@ function App() {
             <p>
               Live classes • Daily practice • Personal feedback
             </p>
+
           </div>
 
           <div className="footer-column">
-            <h3>Quick Links</h3>
 
-            <button
-              onClick={() => scrollToSection("home")}
-            >
+            <h3>
+              Quick Links
+            </h3>
+
+            <button onClick={() => scrollToSection("home")}>
               Home
             </button>
 
-            <button
-              onClick={() => scrollToSection("about")}
-            >
+            <button onClick={() => scrollToSection("about")}>
               About
             </button>
 
-            <button
-              onClick={() => scrollToSection("reviews")}
-            >
+            <button onClick={() => scrollToSection("reviews")}>
               Reviews
             </button>
 
-            <button
-              onClick={() => scrollToSection("courses")}
-            >
+            <button onClick={() => scrollToSection("courses")}>
               Courses
             </button>
 
-            <button
-              onClick={() => scrollToSection("faq")}
-            >
+            <button onClick={() => scrollToSection("faq")}>
               FAQ
             </button>
+
           </div>
 
           <div className="footer-column">
-            <h3>Contact</h3>
+
+            <h3>
+              Contact
+            </h3>
 
             <a href="mailto:englishwithtanya1259@gmail.com">
               ✉ englishwithtanya1259@gmail.com
@@ -806,10 +1172,14 @@ function App() {
             >
               WhatsApp
             </a>
+
           </div>
 
           <div className="footer-column">
-            <h3>Follow</h3>
+
+            <h3>
+              Follow
+            </h3>
 
             <a
               href="https://www.instagram.com/englishwith__tanya/"
@@ -826,10 +1196,13 @@ function App() {
             >
               Facebook
             </a>
+
           </div>
+
         </div>
 
         <div className="footer-bottom">
+
           <span>
             © 2026 English With Tanya. All rights reserved.
           </span>
@@ -837,11 +1210,13 @@ function App() {
           <span>
             English Communication Coaching
           </span>
+
         </div>
+
       </footer>
+
     </div>
   );
 }
 
 export default App;
-
