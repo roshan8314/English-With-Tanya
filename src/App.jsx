@@ -3,6 +3,9 @@ import { useNavigate } from "react-router-dom";
 import "./App.css";
 
 function App() {
+
+  console.log("RAZORPAY KEY:", import.meta.env.VITE_RAZORPAY_KEY_ID);
+
   const navigate = useNavigate();
 
   const [openFaq, setOpenFaq] = useState(null);
@@ -107,7 +110,7 @@ function App() {
 
       // Create Razorpay order
       const orderResponse = await fetch(
-        "http://localhost:5000/api/payments/create-order",
+        "https://english-with-tanya-backend.onrender.com/api/payments/create-order",
         {
           method: "POST",
           headers: {
@@ -171,7 +174,7 @@ function App() {
 
             // Verify payment on backend
             const verifyResponse = await fetch(
-              "http://localhost:5000/api/payments/verify-payment",
+              "https://english-with-tanya-backend.onrender.com/api/payments/verify-payment",
               {
                 method: "POST",
                 headers: {
@@ -297,7 +300,7 @@ function App() {
       */
 
       const response = await fetch(
-        "http://localhost:5000/api/bookings",
+        "https://english-with-tanya-backend.onrender.com/api/bookings",
         {
           method: "POST",
 
