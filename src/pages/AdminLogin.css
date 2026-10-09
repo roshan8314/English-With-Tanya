@@ -1,0 +1,138 @@
+
+.admin-login-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  background: #111111;
+  font-family: Arial, sans-serif;
+  box-sizing: border-box;
+}
+
+.admin-login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 38px;
+  background: #1b1b1b;
+  border: 1px solid #343434;
+  border-radius: 18px;
+  color: #ffffff;
+  box-sizing: border-box;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.35);
+}
+
+.admin-login-brand {
+  color: #ff5a1f;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+.admin-login-icon {
+  width: 58px;
+  height: 58px;
+  margin: 30px auto 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  background: rgba(255, 90, 31, 0.12);
+  color: #ff5a1f;
+  font-size: 30px;
+}
+
+.admin-login-card h1 {
+  margin: 0;
+  text-align: center;
+  font-size: 29px;
+}
+
+.admin-login-subtitle {
+  margin: 12px 0 28px;
+  color: #aaaaaa;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.admin-login-card form {
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-login-card label {
+  margin: 0 0 9px;
+  color: #eeeeee;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-login-card input {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 20px;
+  border: 1px solid #414141;
+  border-radius: 9px;
+  outline: none;
+  background: #121212;
+  color: #ffffff;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.admin-login-card input:focus {
+  border-color: #ff5a1f;
+  box-shadow: 0 0 0 3px rgba(255, 90, 31, 0.12);
+}
+
+.admin-login-card input::placeholder {
+  color: #777777;
+}
+
+.admin-login-card button {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 9px;
+  background: #ff5a1f;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.admin-login-card button:hover {
+  background: #e94810;
+}
+
+.admin-login-card button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.admin-login-error {
+  margin-bottom: 18px;
+  padding: 12px;
+  border: 1px solid #743a35;
+  border-radius: 8px;
+  background: #321d1b;
+  color: #ffb4aa;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-login-footer {
+  margin: 24px 0 0;
+  color: #777777;
+  text-align: center;
+  font-size: 12px;
+}
+
+@media (max-width: 480px) {
+  .admin-login-card {
+    padding: 28px 22px;
+  }
+}

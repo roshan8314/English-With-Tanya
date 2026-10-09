@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./App.css";
+import AdminLogin from "./pages/AdminLogin";
 
 function App() {
 
@@ -220,7 +221,7 @@ function App() {
 
             setBookingError(
               error.message ||
-                "Payment was completed, but verification failed. Please contact Tanya."
+              "Payment was completed, but verification failed. Please contact Tanya."
             );
           } finally {
             setBookingLoading(false);
@@ -254,7 +255,7 @@ function App() {
 
         setBookingError(
           response.error?.description ||
-            "Payment failed. Please try again."
+          "Payment failed. Please try again."
         );
       });
 
@@ -609,10 +610,11 @@ function App() {
 
       {/* ================= REVIEWS ================= */}
 
+      {/* ================= REVIEWS ================= */}
       <section id="reviews" className="reviews-section section">
 
         <div className="section-label center">
-          REAL LEARNERS • REAL PROGRESS
+          REAL LEARNERS • REAL FEEDBACK
         </div>
 
         <h2 className="large-heading center">
@@ -624,35 +626,35 @@ function App() {
           learning journey.
         </p>
 
-        <div className="reviews-grid">
+        <div className="student-review-gallery">
 
-          {reviews.map((review, index) => (
+          <div className="student-review-card">
+            <img
+              src="/images/reviews/rev1.jpeg"
+              alt="Student review"
+            />
+          </div>
 
-            <div className="review-card" key={index}>
+          <div className="student-review-card">
+            <img
+              src="/images/reviews/rev2.jpeg"
+              alt="Student review"
+            />
+          </div>
 
-              <div className="stars">
-                ★★★★★
-              </div>
+          <div className="student-review-card">
+            <img
+              src="/images/reviews/rev3.jpeg"
+              alt="Student review"
+            />
+          </div>
 
-              <p>
-                "{review.text}"
-              </p>
-
-              <div className="review-name">
-
-                <div className="review-avatar">
-                  {index + 1}
-                </div>
-
-                <strong>
-                  {review.name}
-                </strong>
-
-              </div>
-
-            </div>
-
-          ))}
+          <div className="student-review-card">
+            <img
+              src="/images/reviews/rev4.jpeg"
+              alt="Student review"
+            />
+          </div>
 
         </div>
 
@@ -926,8 +928,8 @@ function App() {
               {bookingLoading
                 ? "PROCESSING..."
                 : bookingForm.course === "₹99 Trial Class"
-                ? "PAY ₹99 & BOOK TRIAL"
-                : "SUBMIT BOOKING"}
+                  ? "PAY ₹99 & BOOK TRIAL"
+                  : "SUBMIT BOOKING"}
 
               <span>↗</span>
 
@@ -984,31 +986,11 @@ function App() {
           </div>
 
           <div className="book-area">
-
-            <div className="book">
-
-              <div className="book-top">
-                ENGLISH WITH
-              </div>
-
-              <div className="book-title">
-                TANYA
-              </div>
-
-              <div className="book-middle">
-                Speak.
-                <br />
-                Practise.
-                <br />
-                Grow.
-              </div>
-
-              <div className="book-bottom">
-                English Communication
-              </div>
-
-            </div>
-
+            <img
+              src="/images/book.jpeg"
+              alt="Spoken English Vocabulary - English With Tanya"
+              className="ebook-cover"
+            />
           </div>
 
         </div>
@@ -1032,9 +1014,8 @@ function App() {
           {faqs.map((faq, index) => (
 
             <div
-              className={`faq-item ${
-                openFaq === index ? "active" : ""
-              }`}
+              className={`faq-item ${openFaq === index ? "active" : ""
+                }`}
               key={index}
             >
 
