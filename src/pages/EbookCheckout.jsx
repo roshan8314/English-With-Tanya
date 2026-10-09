@@ -72,6 +72,7 @@ function EbookCheckout() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
+            type: "ebook",
             name: form.name,
             email: form.email,
             phone: form.phone,
